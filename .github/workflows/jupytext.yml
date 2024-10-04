@@ -1,0 +1,39 @@
+name: Convert Jupyter Notebooks to Python Scripts
+
+on:
+  push:
+
+jobs:
+  convert_notebooks:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Jupytext
+      run: pip install jupytext black
+
+    - name: Convert notebooks to formatted Python scripts
+      run: |
+        for notebook in $(find . -name "*.ipynb"); do
+          jupytext --to py:percent "$notebook"
+          py_file="${notebook%.ipynb}.py"
+          if [ -f "$py_file" ]; then
+            black --line-length 120 "$py_file"
+          fi
+        done
+
+    - name: Get the last commit message
+      id: get_commit_message
+      run: echo "::set-output name=message::$(git log -1 --pretty=%B)"
+
+    - name: Commit changes
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add .
+        git commit -m "nb2py: ${{ steps.get_commit_message.outputs.message }}"
+        git push
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
